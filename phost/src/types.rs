@@ -66,6 +66,14 @@ impl<T: Serialize> RuntimeReq<T> {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct TouchOnlyReq {}
+#[derive(Serialize, Deserialize, Debug)]
+pub struct TouchOnlyResp {}
+impl Resp for TouchOnlyReq {
+    type Resp = TouchOnlyResp;
+}
+
 // API: get_info
 
 #[derive(Serialize, Deserialize, Debug)]

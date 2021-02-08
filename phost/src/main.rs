@@ -19,14 +19,7 @@ mod runtimes;
 mod types;
 
 use crate::error::Error;
-use crate::types::{
-    Runtime, Header, Hash, BlockNumber, AccountId,
-    GetInfoReq,
-    InitRuntimeReq, GenesisInfo, InitRuntimeResp, GetRuntimeInfoReq, InitRespAttestation,
-    SyncHeaderReq, SyncHeaderResp, BlockWithEvents, HeaderToSync, AuthoritySet, AuthoritySetChange,
-    OpaqueSignedBlock, DispatchBlockReq, DispatchBlockResp, BlockHeaderWithEvents,
-    NotifyReq,
-};
+use crate::types::{Runtime, Header, Hash, BlockNumber, AccountId, GetInfoReq, InitRuntimeReq, GenesisInfo, InitRuntimeResp, GetRuntimeInfoReq, InitRespAttestation, SyncHeaderReq, SyncHeaderResp, BlockWithEvents, HeaderToSync, AuthoritySet, AuthoritySetChange, OpaqueSignedBlock, DispatchBlockReq, DispatchBlockResp, BlockHeaderWithEvents, NotifyReq, TouchOnlyReq, TouchOnlyResp};
 
 use notify_client::NotifyClient;
 type XtClient = subxt::Client<Runtime>;
@@ -227,6 +220,13 @@ async fn req_sync_header(
     Ok(resp)
 }
 
+async fn req_reset_system_state(
+    pr: &PrClient
+) -> Result<TouchOnlyResp, Error>
+{
+    let resp = pr.req_decode("reset_system_state", TouchOnlyReq {}).await?;
+    Ok(resp)
+}
 
 async fn req_dispatch_block<T>(pr: &PrClient, blocks: &T) -> Result<DispatchBlockResp, Error>
 where T: std::ops::Deref<Target = [BlockHeaderWithEvents]> {
@@ -679,6 +679,11 @@ async fn bridge(args: Args) -> Result<(), Error> {
                 pruntime_new_init,
                 initial_sync_finished,
             }).await.ok();
+
+            if pruntime_new_init == false {
+                req_reset_system_state(&pr).await?;
+                pruntime_new_init = true;
+            }
 
             // Now we are idle. Let's try to sync the egress messages.
             if !args.no_write_back {

@@ -564,6 +564,7 @@ const ACTION_QUERY: u8 = 6;
 const ACTION_DISPATCH_BLOCK: u8 = 7;
 // Reserved: 8, 9
 const ACTION_GET_RUNTIME_INFO: u8 = 10;
+const ACTION_RESET_SYSTEM_STATE: u8 = 11;
 const ACTION_SET: u8 = 21;
 const ACTION_GET: u8 = 22;
 
@@ -608,6 +609,7 @@ pub extern "C" fn ecall_handle(
                 ACTION_GET => get(payload),
                 ACTION_SET => set(payload),
                 ACTION_GET_RUNTIME_INFO => get_runtime_info(payload),
+                ACTION_RESET_SYSTEM_STATE => reset_system_state(payload),
                 _ => unknown()
             }
         }
@@ -1441,6 +1443,24 @@ fn query(q: types::SignedQuery) -> Result<Value, Value> {
 
     let res_value = serde_json::to_value(res_payload).unwrap();
     Ok(res_value)
+}
+
+fn reset_system_state(_input: &Map<String, Value>) -> Result<Value, Value> {
+    let local_state = LOCAL_STATE.lock().unwrap();
+    if !local_state.initialized {
+        return Ok(json!({}))
+    }
+
+    let ecdsa_seed = local_state.private_key.serialize();
+    let id_pair = sp_core::ecdsa::Pair::from_seed_slice(&ecdsa_seed)
+        .expect("Unexpected ecdsa key error in init_runtime");
+    // Re-init some contracts because they require the identity key
+    let mut system_state = SYSTEM_STATE.lock().unwrap();
+    let _ = std::mem::replace(&mut *system_state, system::System::new());
+    system_state.set_id(&id_pair);
+    system_state.set_machine_id(local_state.machine_id.to_vec());
+
+    Ok(json!({}))
 }
 
 
